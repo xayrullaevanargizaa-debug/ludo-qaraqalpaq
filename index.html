@@ -1,1 +1,339 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Qaraqalpaq Ludo</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; font-family: system-ui, -apple-system, sans-serif; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #0f131f;
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      gap: 10px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 390px;
+    }
+    .title { font-size: 18px; font-weight: 800; letter-spacing: 0.4px; }
+    .reset-btn {
+      background: #1e293b;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .board {
+      width: 100%;
+      max-width: 390px;
+      aspect-ratio: 1 / 1;
+      display: grid;
+      grid-template-columns: repeat(11, 1fr);
+      grid-template-rows: repeat(11, 1fr);
+      gap: 2px;
+      background: #1e293b;
+      padding: 4px;
+      border-radius: 14px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+    }
+    .cell {
+      background: #273249;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      font-size: 10px;
+      color: #94a3b8;
+    }
+    .base-red { background: rgba(239, 68, 68, 0.22); border: 1px solid rgba(239, 68, 68, 0.45); }
+    .base-green { background: rgba(34, 197, 94, 0.22); border: 1px solid rgba(34, 197, 94, 0.45); }
+    .base-yellow { background: rgba(234, 179, 8, 0.22); border: 1px solid rgba(234, 179, 8, 0.45); }
+    .base-blue { background: rgba(59, 130, 246, 0.22); border: 1px solid rgba(59, 130, 246, 0.45); }
+    .home-center {
+      background: linear-gradient(135deg, #ef4444 25%, #22c55e 25% 50%, #eab308 50% 75%, #3b82f6 75%);
+      border-radius: 6px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 11px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+    .safe { box-shadow: inset 0 0 0 1.5px rgba(250, 204, 21, 0.55); }
+    .token {
+      width: 74%;
+      height: 74%;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 800;
+      color: #fff;
+      z-index: 2;
+      transition: transform 0.15s ease;
+    }
+    .token.red { background: #ef4444; }
+    .token.green { background: #22c55e; }
+    .token.yellow { background: #eab308; color: #0f172a; }
+    .token.blue { background: #3b82f6; }
+    .token.movable {
+      animation: pulse 0.8s infinite alternate;
+      cursor: pointer;
+      z-index: 5;
+      outline: 2px solid #38bdf8;
+    }
+    @keyframes pulse {
+      from { transform: scale(0.95); }
+      to { transform: scale(1.15); }
+    }
+    .controls {
+      width: 100%;
+      max-width: 390px;
+      background: #182032;
+      border: 1px solid #28354f;
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .status { font-size: 13px; font-weight: 600; line-height: 1.3; flex: 1; }
+    .dice-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: #273249;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 800;
+      border: 1px solid #3b4b6b;
+    }
+    .roll-btn {
+      background: #2ea6ff;
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .roll-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">🎲 LUDO MINI APP</div>
+    <button class="reset-btn" id="resetBtn">Qayta</button>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="controls">
+    <div class="status" id="status">Qizil (🔴) navbati — zar tashlang</div>
+    <div class="dice-box" id="dice">-</div>
+    <button class="roll-btn" id="rollBtn">Zar</button>
+  </div>
+
+  <script>
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+    }
+
+    const track = [
+      [4,0],[4,1],[4,2],[4,3],[4,4],
+      [3,4],[2,4],[1,4],[0,4],[0,5],[0,6],
+      [1,6],[2,6],[3,6],[4,6],
+      [4,7],[4,8],[4,9],[4,10],[5,10],[6,10],
+      [6,9],[6,8],[6,7],[6,6],
+      [7,6],[8,6],[9,6],[10,6],[10,5],[10,4],
+      [9,4],[8,4],[7,4],[6,4],
+      [6,3],[6,2],[6,1],[6,0],[5,0]
+    ];
+
+    const players = [
+      { id: "red", name: "Qizil", emoji: "🔴", startIdx: 1, baseCells: [[1,1],[1,2],[2,1],[2,2]], baseClass: "base-red" },
+      { id: "green", name: "Yashil", emoji: "🟢", startIdx: 11, baseCells: [[1,8],[1,9],[2,8],[2,9]], baseClass: "base-green" },
+      { id: "yellow", name: "Sariq", emoji: "🟡", startIdx: 21, baseCells: [[8,8],[8,9],[9,8],[9,9]], baseClass: "base-yellow" },
+      { id: "blue", name: "Ko‘k", emoji: "🔵", startIdx: 31, baseCells: [[8,1],[8,2],[9,1],[9,2]], baseClass: "base-blue" }
+    ];
+
+    const safeTrackIndices = new Set([1, 9, 11, 19, 21, 29, 31, 39]);
+
+    let turn = 0;
+    let diceVal = null;
+    let canMove = false;
+    let tokens = [];
+
+    const boardEl = document.getElementById("board");
+    const statusEl = document.getElementById("status");
+    const diceEl = document.getElementById("dice");
+    const rollBtn = document.getElementById("rollBtn");
+    const resetBtn = document.getElementById("resetBtn");
+
+    function initGame() {
+      turn = 0;
+      diceVal = null;
+      canMove = false;
+      rollBtn.disabled = false;
+      diceEl.textContent = "-";
+      tokens = [];
+      players.forEach((p, pIdx) => {
+        for (let t = 0; t < 4; t++) {
+          tokens.push({ pIdx, tIdx: t, step: -1 });
+        }
+      });
+      setStatus(`${players[turn].name} (${players[turn].emoji}) navbati`);
+      render();
+    }
+
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+    }
+
+    function getTokenCoord(tok) {
+      const p = players[tok.pIdx];
+      if (tok.step === -1) return p.baseCells[tok.tIdx];
+      if (tok.step >= 40) return [5, 5];
+      const idx = (p.startIdx + tok.step) % track.length;
+      return track[idx];
+    }
+
+    function isMovable(tok) {
+      if (!canMove || tok.pIdx !== turn || tok.step >= 40) return false;
+      if (tok.step === -1) return diceVal === 6;
+      return tok.step + diceVal <= 40;
+    }
+
+    function render() {
+      boardEl.innerHTML = "";
+      const grid = Array.from({ length: 11 }, () => Array(11).fill(null));
+
+      for (let r = 0; r < 11; r++) {
+        for (let c = 0; c < 11; c++) {
+          const el = document.createElement("div");
+          el.className = "cell";
+          if (r === 5 && c === 5) {
+            el.className = "cell home-center";
+            el.textContent = "WIN";
+          } else {
+            players.forEach(p => {
+              if (p.baseCells.some(([br, bc]) => br === r && bc === c)) {
+                el.classList.add(p.baseClass);
+              }
+            });
+            const tIdx = track.findIndex(([tr, tc]) => tr === r && tc === c);
+            if (tIdx !== -1 && safeTrackIndices.has(tIdx)) {
+              el.classList.add("safe");
+            }
+          }
+          boardEl.appendChild(el);
+          grid[r][c] = el;
+        }
+      }
+
+      const grouped = {};
+      tokens.forEach(tok => {
+        const [r, c] = getTokenCoord(tok);
+        const key = `${r},${c}`;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(tok);
+      });
+
+      Object.entries(grouped).forEach(([key, list]) => {
+        const [r, c] = key.split(",").map(Number);
+        const cellEl = grid[r][c];
+        list.forEach(tok => {
+          const p = players[tok.pIdx];
+          const btn = document.createElement("div");
+          btn.className = `token ${p.id}` + (isMovable(tok) ? " movable" : "");
+          btn.textContent = tok.tIdx + 1;
+          if (isMovable(tok)) {
+            btn.onclick = () => moveToken(tok);
+          }
+          cellEl.appendChild(btn);
+        });
+      });
+    }
+
+    function moveToken(tok) {
+      if (!isMovable(tok)) return;
+      if (tok.step === -1 && diceVal === 6) {
+        tok.step = 0;
+      } else {
+        tok.step += diceVal;
+      }
+
+      const p = players[tok.pIdx];
+      const finishedCount = tokens.filter(t => t.pIdx === tok.pIdx && t.step >= 40).length;
+      if (finishedCount === 4) {
+        canMove = false;
+        rollBtn.disabled = true;
+        setStatus(`🏆 ${p.name} (${p.emoji}) g‘olib bo‘ldi!`);
+        render();
+        return;
+      }
+
+      const extraTurn = diceVal === 6;
+      canMove = false;
+      diceVal = null;
+      rollBtn.disabled = false;
+
+      if (!extraTurn) {
+        turn = (turn + 1) % players.length;
+      }
+      setStatus(`${players[turn].name} (${players[turn].emoji}) navbati`);
+      render();
+    }
+
+    rollBtn.onclick = () => {
+      if (canMove) return;
+      diceVal = Math.floor(Math.random() * 6) + 1;
+      diceEl.textContent = diceVal;
+      rollBtn.disabled = true;
+
+      const movableTokens = tokens.filter(isMovable);
+      if (movableTokens.length === 0) {
+        setStatus(`${players[turn].name}: yurish yo‘q (${diceVal})`);
+        setTimeout(() => {
+          turn = (turn + 1) % players.length;
+          diceVal = null;
+          diceEl.textContent = "-";
+          rollBtn.disabled = false;
+          setStatus(`${players[turn].name} (${players[turn].emoji}) navbati`);
+          render();
+        }, 700);
+        return;
+      }
+
+      canMove = true;
+      setStatus(`${players[turn].name} (${diceVal}): miltillagan donani bosing`);
+      render();
+    };
+
+    resetBtn.onclick = initGame;
+    initGame();
+  </script>
+</body>
+  </html>
 
